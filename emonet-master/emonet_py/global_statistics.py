@@ -97,7 +97,7 @@ class GlobalStatistics:
 
     def plot_scatter_size_plot(self, df, col1, col2):
         c = pd.crosstab(df[col1], df[col2]).stack().reset_index(name='C')
-        c.plot.scatter(col1, col2, s=c.C, colormap="viridis")
+        c.plot.scatter(col1, col2, s=c.C)
         plt.xticks(rotation=90)
         plt.tight_layout()
         plt.show()
@@ -119,13 +119,16 @@ class GlobalStatistics:
         return cramersv.fit()
 
     def remove_obj_cat(self, obj):
+        """
+        Remove specific object category from the data
+        """
         self.yolo_outputs = self.yolo_outputs[self.yolo_outputs["detected_object"] != obj]
         self.yolo_ann_outputs = self.yolo_ann_outputs[self.yolo_ann_outputs["detected_object"] != obj]
 
 
     def remove_obj_outliers(self, count):
         """
-        Removes the detected objects occurring less than 'count' times
+        Remove the detected objects occurring less (or equal) than 'count' times
         """
         v = self.yolo_outputs.detected_object.value_counts()
         self.yolo_outputs = self.yolo_outputs[self.yolo_outputs.detected_object.isin(v.index[v.gt(count)])]
@@ -142,7 +145,7 @@ def analysis_obj_emo(gs):
     # get chi2 correlation measure (strength of association)
     chi_square_corr_emo_obj = sp.stats.chi2_contingency(obj_emo_df_ct)
     gs.plot_scatter_size_plot(obj_emo_df, "emonet_emotion", "detected_object")
-    print("emonet emotion vs detected object corr: ", cram_corr_emo_obj)
+    print("emonet emotion vs detected object corr: ", cram_corr_emo_obj, chi_square_corr_emo_obj)
 
     plt.tight_layout()
     plt.show()
@@ -156,7 +159,7 @@ def analysis_emo_ann(gs):
     cram_corr_emo_ann = sp.stats.contingency.association(emo_ann_df_ct, 'cramer')
     chi_square_corr_emo_ann = sp.stats.chi2_contingency(emo_ann_df_ct)
     gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
-    print("emonet emotion vs ann emotion corr: ", cram_corr_emo_ann)
+    print("emonet emotion vs ann emotion corr: ", cram_corr_emo_ann, chi_square_corr_emo_ann)
 
     plt.tight_layout()
     plt.show()
@@ -233,12 +236,12 @@ def analysis_fact_emo(gs):
 
 
 if __name__ == '__main__':
-    gs = GlobalStatistics(obj_importance_thres=0.7, emo_conf_thres=0.4, obj_conf_thres=0,
+    gs = GlobalStatistics(obj_importance_thres=0.8, emo_conf_thres=0.6, obj_conf_thres=0,
                           ann_ambiguity_thres=4)
     # filtering
-    gs.remove_obj_cat("Person")
-    gs.remove_obj_cat("Clothing")
-    gs.remove_obj_outliers(10)
+    #gs.remove_obj_cat("Person")
+    #gs.remove_obj_cat("Clothing")
+    #gs.remove_obj_outliers(50)
 
     # analyses
     analysis_obj_emo(gs)
