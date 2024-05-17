@@ -7,6 +7,7 @@ import seaborn as sns
 import scipy as sp
 import association_metrics as am
 import os
+import torch
 
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
@@ -35,7 +36,7 @@ def save_dictionary(dico, name):
 
 class GlobalStatistics:
 
-    def __init__(self, obj_importance_thres, emo_conf_thres, obj_conf_thres, ann_ambiguity_thres):
+    def __init__(self, obj_importance_thres, emo_conf_thres, obj_conf_thres, ann_ambiguity_thres, device=torch.device('cpu')):
         self.emonet_outputs = pd.read_csv('emonet_outputs')
         self.yolo_outputs = pd.read_csv('yolo_outputs')
         self.ann = get_annotations_df()
@@ -237,7 +238,7 @@ def analysis_fact_emo(gs):
 
 if __name__ == '__main__':
     gs = GlobalStatistics(obj_importance_thres=0.8, emo_conf_thres=0.6, obj_conf_thres=0,
-                          ann_ambiguity_thres=4)
+                          ann_ambiguity_thres=4, device=torch.device('mps'))
     # filtering
     #gs.remove_obj_cat("Person")
     #gs.remove_obj_cat("Clothing")
