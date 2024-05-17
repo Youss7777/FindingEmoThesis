@@ -60,8 +60,10 @@ class GlobalStatistics:
         emo_obj_df = self.yolo_outputs[(self.yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
                                        (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
                                        (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
+        emo_obj_df = emo_obj_df.drop_duplicates(subset=['dir_image_path', 'emonet_emotion', 'detected_object'], keep='first')
+        emo_obj_df = emo_obj_df[(emo_obj_df["detected_object"] != "Person") & (emo_obj_df["detected_object"] != "Clothing")]
 
-        return emo_obj_df[["emonet_emotion", "detected_object"]]
+        return emo_obj_df[['emonet_emotion', 'detected_object']]
 
     def get_emo_ann_df(self):
         emo_ann_df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
@@ -237,7 +239,7 @@ def analysis_fact_emo(gs):
 
 
 if __name__ == '__main__':
-    gs = GlobalStatistics(obj_importance_thres=0.8, emo_conf_thres=0.6, obj_conf_thres=0,
+    gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.5, obj_conf_thres=0.1,
                           ann_ambiguity_thres=4, device=torch.device('mps'))
     # filtering
     #gs.remove_obj_cat("Person")
@@ -247,12 +249,12 @@ if __name__ == '__main__':
     # analyses
     analysis_obj_emo(gs)
     analysis_obj_ann(gs)
-    analysis_emo_ann(gs)
-    analysis_valence(gs)
-    analysis_arousal(gs)
+    #analysis_emo_ann(gs)
+    #analysis_valence(gs)
+    #analysis_arousal(gs)
 
     # correlations
-    sns.heatmap(gs.cramers_correlation_matrix(), annot=True, cmap='coolwarm')
+    #sns.heatmap(gs.cramers_correlation_matrix(), annot=True, cmap='coolwarm')
 
     plt.tight_layout()
 
