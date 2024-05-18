@@ -21,8 +21,8 @@ matplotlib.use('MacOSX')
 emonet_df = pd.read_csv('emonet_outputs')
 yolo_df = pd.read_csv('yolo_outputs')
 
-def get_emo_vec(emo_name, df, emo_col_label):
-    df2 = df[['dir_image_path', emo_col_label]].copy()
+def get_emo_vec(df_emo, emo_name, emo_col_label):
+    df2 = df_emo[['dir_image_path', emo_col_label]].copy()
     df2[emo_name] = (df2[emo_col_label] == emo_name).astype(int)
     df3 = df2.groupby(by=['dir_image_path'], sort=False, as_index=False).sum(numeric_only=True)
     vec_emo = df3[emo_name].apply(lambda x: 1 if x > 1 else x)
@@ -35,19 +35,19 @@ def emo_emo_binary_df(df_emo, emo_to_corr1, emo_to_corr2, emo_col_label1, emo_co
         df = pd.concat([df, get_emo_vec(df_emo, emo2, emo_col_label2)], axis=1)
     return df
 
-def get_obj_vec(obj_name, df):
+def get_obj_vec(df, obj_name):
     df2 = df[['dir_image_path', 'detected_object']].copy()
     df2[obj_name] = (df2['detected_object'] == obj_name).astype(int)
     df3 = df2.groupby(by=['dir_image_path'], sort=False, as_index=False).sum(numeric_only=True)
     vec_obj = df3[obj_name].apply(lambda x: 1 if x > 1 else x)
     return vec_obj
 
-def emo_obj_binary_df(emo_to_corr, obj_to_corr, emo_obj_df, emo_col_label):
+def emo_obj_binary_df(emo_obj_df, emo_to_corr, obj_to_corr, emo_col_label):
     df = pd.DataFrame()
     for obj in obj_to_corr:
-        df = pd.concat([df, get_obj_vec(obj, emo_obj_df)], axis=1)
+        df = pd.concat([df, get_obj_vec(emo_obj_df, obj)], axis=1)
     for emo in emo_to_corr:
-        df = pd.concat([df, get_emo_vec(emo, emo_obj_df, emo_col_label)], axis=1)
+        df = pd.concat([df, get_emo_vec(emo_obj_df, emo, emo_col_label)], axis=1)
     return df
 
 # SMC : doesn't work

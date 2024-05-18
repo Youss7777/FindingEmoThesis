@@ -126,7 +126,7 @@ def analysis_emo_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(emo_to_corr, obj_to_corr)
+    df = correlation_analysis.emo_obj_binary_df(emo_obj_df, emo_to_corr, obj_to_corr, 'emonet_emotion')
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
     sns.heatmap(correlation_matrix, annot=True)
 
@@ -141,7 +141,7 @@ def analysis_ann_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(ann_obj_df, "ann_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(emo_to_corr, obj_to_corr, )
+    df = correlation_analysis.emo_obj_binary_df(ann_obj_df, emo_to_corr, obj_to_corr, 'ann_emotion')
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
     sns.heatmap(correlation_matrix, annot=True)
     plt.tight_layout()
