@@ -65,11 +65,9 @@ class GlobalStatistics:
 
 
     def process_df(self):
-        # remove surplus images from emonet_outputs
+        # load & remove surplus images
         emonet_outputs = pd.read_csv('emonet_outputs')
         emonet_outputs = pd.merge(self.ann['dir_image_path'], emonet_outputs, how='left', on='dir_image_path')
-
-        # remove surplus images from yolo_outputs
         yolo_outputs = pd.read_csv('yolo_outputs')
         yolo_outputs = pd.merge(self.ann['dir_image_path'], yolo_outputs, how='left', on='dir_image_path')
 
@@ -86,12 +84,12 @@ class GlobalStatistics:
     def filter_df(self):
         # apply pre-filtering
         yolo_outputs_filtered = self.yolo_outputs[(self.yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
-                                    (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
-                                    (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
-        yolo_ann_outputs_filtered = self.yolo_ann_outputs[(self.yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres)
-                                            & (self.yolo_ann_outputs["object_confidence"] > self.obj_conf_thres)]
+                                                  (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
+                                                  (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
+        yolo_ann_outputs_filtered = self.yolo_ann_outputs[(self.yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                                                          (self.yolo_ann_outputs["object_confidence"] > self.obj_conf_thres)]
         emonet_ann_outputs_filtered = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                                (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
+                                                              (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
         return yolo_outputs_filtered, yolo_ann_outputs_filtered, emonet_ann_outputs_filtered
 
 
@@ -128,8 +126,10 @@ def analysis_emo_obj(gs, emo_to_corr, obj_to_corr):
     gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
     # correlation matrix
     df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_outputs, emo_to_corr=emo_to_corr, emo_label='emonet_emotion', obj_to_corr=obj_to_corr)
+    # choose specific method for similarity measure
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
-    sns.heatmap(correlation_matrix, annot=True)
+    mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
+    sns.heatmap(correlation_matrix, annot=True, mask=mask)
 
     plt.tight_layout()
     plt.show()
@@ -143,8 +143,10 @@ def analysis_ann_obj(gs, emo_to_corr, obj_to_corr):
     gs.plot_scatter_size_plot(ann_obj_df, "ann_emotion", "detected_object")
     # correlation matrix
     df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_ann_outputs,emo_to_corr=emo_to_corr, emo_label='ann_emotion', obj_to_corr=obj_to_corr)
+    # choose specific method for similarity measure
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
-    sns.heatmap(correlation_matrix, annot=True)
+    mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
+    sns.heatmap(correlation_matrix, annot=True, mask=mask)
     plt.tight_layout()
     plt.show()
 
@@ -154,9 +156,13 @@ def analysis_emo_ann(gs):
     # scatter plot
     gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
     # correlation matrix
-    df = correlation_analysis.emo_emo_binary_df(gs.emonet_ann_outputsk, emo_ann_df['emonet_emotion'].to_list(), emo_ann_df['ann_emotion'].to_list())
+    df = correlation_analysis.emo_emo_binary_df(df_to_corr=gs.emonet_ann_outputs, emo_to_corr1=gs.emonet_ann_outputs['emonet_emotion'].drop_duplicates().dropna().to_list(),
+                                                emo_label1='emonet_emotion', emo_to_corr2=gs.emonet_ann_outputs['ann_emotion'].drop_duplicates().to_list(),
+                                                emo_label2='ann_emotion')
+    # choose specific method for similarity measure
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
-    sns.heatmap(correlation_matrix, annot=True)
+    #mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
+    sns.heatmap(correlation_matrix)
     plt.tight_layout()
     plt.show()
 
@@ -164,10 +170,9 @@ def analysis_valence(gs):
     # analysis 4 : predicted valence (EmoNet) vs annotated valence (ANN)
     val_emonet_ann_df = gs.get_val_df()
     # plotting
-    sns.scatterplot(val_emonet_ann_df, x=val_emonet_ann_df["emonet_valence"], y=val_emonet_ann_df["ann_valence"])
+    plt.scatter(x=val_emonet_ann_df["emonet_valence"], y=val_emonet_ann_df["ann_valence"])
     # plot correlation matrix (one coefficient only here)
-    mask = np.triu(np.ones_like(val_emonet_ann_df.corr()))  # mask for triangular matrix only
-    sns.heatmap(val_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm', mask=mask)
+    print(val_emonet_ann_df.corr(method="spearman"))
     plt.tight_layout()
     plt.show()
 
@@ -175,10 +180,10 @@ def analysis_arousal(gs):
     # analysis 5 : predicted arousal (EmoNet) vs annotated arousal (ANN)
     aro_emonet_ann_df = gs.get_aro_df()
     # scatter plot
-    sns.scatterplot(aro_emonet_ann_df, x=aro_emonet_ann_df["emonet_arousal"], y=aro_emonet_ann_df["ann_arousal"])
+    plt.scatter(x=aro_emonet_ann_df["emonet_arousal"], y=aro_emonet_ann_df["ann_arousal"])
     # plot correlation matrix (one coefficient only here)
-    mask = np.triu(np.ones_like(aro_emonet_ann_df.corr()))  # mask for triangular matrix only
-    sns.heatmap(aro_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm', mask=mask)
+    #mask = np.triu(np.ones_like(aro_emonet_ann_df.corr()))  # mask for triangular matrix only
+    print(aro_emonet_ann_df.corr(method="spearman"))
     plt.tight_layout()
     plt.show()
 
@@ -188,8 +193,8 @@ if __name__ == '__main__':
                           ann_ambiguity_thres=4, device=torch.device('cpu'))
 
     # analyses
-    analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
-    analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    #analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    #analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
     #analysis_emo_ann(gs)
-    #analysis_valence(gs)
-    #analysis_arousal(gs)
+    analysis_valence(gs)
+    analysis_arousal(gs)
