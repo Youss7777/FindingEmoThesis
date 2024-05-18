@@ -9,7 +9,7 @@ import association_metrics as am
 import os
 import torch
 import numpy as np
-import correlation_analysis
+import correlation_utils
 
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
@@ -125,9 +125,9 @@ def analysis_emo_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_outputs, emo_to_corr=emo_to_corr, emo_label='emonet_emotion', obj_to_corr=obj_to_corr)
+    df = correlation_utils.emo_obj_binary_df(df_to_corr=gs.yolo_outputs, emo_to_corr=emo_to_corr, emo_label='emonet_emotion', obj_to_corr=obj_to_corr)
     # choose specific method for similarity measure
-    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    correlation_matrix = correlation_utils.rajski_correlation_matrix(df)
     mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
     sns.heatmap(correlation_matrix, annot=True, mask=mask)
 
@@ -142,9 +142,9 @@ def analysis_ann_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(ann_obj_df, "ann_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_ann_outputs,emo_to_corr=emo_to_corr, emo_label='ann_emotion', obj_to_corr=obj_to_corr)
+    df = correlation_utils.emo_obj_binary_df(df_to_corr=gs.yolo_ann_outputs,emo_to_corr=emo_to_corr, emo_label='ann_emotion', obj_to_corr=obj_to_corr)
     # choose specific method for similarity measure
-    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    correlation_matrix = correlation_utils.rajski_correlation_matrix(df)
     mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
     sns.heatmap(correlation_matrix, annot=True, mask=mask)
     plt.tight_layout()
@@ -156,11 +156,11 @@ def analysis_emo_ann(gs):
     # scatter plot
     gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
     # correlation matrix
-    df = correlation_analysis.emo_emo_binary_df(df_to_corr=gs.emonet_ann_outputs, emo_to_corr1=gs.emonet_ann_outputs['emonet_emotion'].drop_duplicates().dropna().to_list(),
+    df = correlation_utils.emo_emo_binary_df(df_to_corr=gs.emonet_ann_outputs, emo_to_corr1=gs.emonet_ann_outputs['emonet_emotion'].drop_duplicates().dropna().to_list(),
                                                 emo_label1='emonet_emotion', emo_to_corr2=gs.emonet_ann_outputs['ann_emotion'].drop_duplicates().to_list(),
                                                 emo_label2='ann_emotion')
     # choose specific method for similarity measure
-    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    correlation_matrix = correlation_utils.rajski_correlation_matrix(df)
     #mask = np.triu(np.ones_like(correlation_matrix))  # mask for triangular matrix only
     sns.heatmap(correlation_matrix)
     plt.tight_layout()
@@ -193,8 +193,8 @@ if __name__ == '__main__':
                           ann_ambiguity_thres=4, device=torch.device('cpu'))
 
     # analyses
-    #analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
-    #analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
-    #analysis_emo_ann(gs)
+    analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    analysis_emo_ann(gs)
     analysis_valence(gs)
     analysis_arousal(gs)
