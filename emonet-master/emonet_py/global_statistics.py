@@ -60,12 +60,11 @@ class GlobalStatistics:
         self.emo_conf_thres = emo_conf_thres
         self.obj_conf_thres = obj_conf_thres
         self.ann_ambiguity_thres = ann_ambiguity_thres
-        self.emonet_outputs, self.yolo_outputs, self.emonet_ann_outputs, self.yolo_ann_outputs = self.post_proc_df()
+        self.emonet_outputs, self.yolo_outputs, self.yolo_ann_outputs, self.emonet_ann_outputs = self.process_df()
+        self.yolo_outputs_filtered, self.yolo_ann_outputs_filtered, self.emonet_ann_outputs_filtered = self.filter_df()
 
 
-    def post_proc_df(self):
-        #self.emonet_ann_outputs = self.emonet_ann_outputs.explode("ann_dec_factors")
-
+    def process_df(self):
         # remove surplus images from emonet_outputs
         emonet_outputs = pd.read_csv('emonet_outputs')
         emonet_outputs = pd.merge(self.ann['dir_image_path'], emonet_outputs, how='left', on='dir_image_path')
@@ -74,40 +73,42 @@ class GlobalStatistics:
         yolo_outputs = pd.read_csv('yolo_outputs')
         yolo_outputs = pd.merge(self.ann['dir_image_path'], yolo_outputs, how='left', on='dir_image_path')
 
-        # some merging to have dataframes for later analysis
-        emonet_ann_outputs = pd.merge(emonet_outputs, self.ann, on=["dir_image_path"], how='left')
+        # some merging for emo_obj and emo_ann analyses
         yolo_ann_outputs = pd.merge(yolo_outputs, self.ann, on=["dir_image_path"], how='left')
+        emonet_ann_outputs = pd.merge(emonet_outputs, self.ann, on=["dir_image_path"], how='left')
 
+        # drop objects that are detected multiple times in the same image
+        yolo_outputs = yolo_outputs.drop_duplicates(subset=['dir_image_path', 'emonet_emotion', 'detected_object'], keep='first')
+        yolo_ann_outputs = yolo_ann_outputs.drop_duplicates(subset=['dir_image_path', 'ann_emotion', 'detected_object'], keep='first')
+
+        return emonet_outputs, yolo_outputs, yolo_ann_outputs, emonet_ann_outputs
+
+    def filter_df(self):
         # apply pre-filtering
-        yolo_outputs = yolo_outputs[(yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
-                                       (yolo_outputs["object_confidence"] > self.obj_conf_thres) &
-                                       (yolo_outputs["object_importance"] > self.obj_importance_thres)]
-        yolo_ann_outputs = yolo_ann_outputs[(yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres)
-                                            & (yolo_ann_outputs["object_confidence"] > self.obj_conf_thres)]
-        emonet_ann_outputs = emonet_ann_outputs[(emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                                (emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
-
-        return emonet_outputs, yolo_outputs, emonet_ann_outputs, yolo_ann_outputs
+        yolo_outputs_filtered = self.yolo_outputs[(self.yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
+                                    (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
+                                    (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
+        yolo_ann_outputs_filtered = self.yolo_ann_outputs[(self.yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres)
+                                            & (self.yolo_ann_outputs["object_confidence"] > self.obj_conf_thres)]
+        emonet_ann_outputs_filtered = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                                                (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
+        return yolo_outputs_filtered, yolo_ann_outputs_filtered, emonet_ann_outputs_filtered
 
 
     def get_emo_obj_df(self):
-        # remove objects detected multiple times in the same image
-        emo_obj_df = self.yolo_outputs.drop_duplicates(subset=['dir_image_path', 'emonet_emotion', 'detected_object'], keep='first')
-        return emo_obj_df[['emonet_emotion', 'detected_object']]
+        return self.yolo_outputs_filtered[['dir_image_path', 'emonet_emotion', 'detected_object']]
 
     def get_ann_obj(self):
-        # remove objects detected multiple times in the same image
-        ann_obj_df = self.yolo_ann_outputs.drop_duplicates(subset=['dir_image_path', 'ann_emotion', 'detected_object'], keep='first')
-        return ann_obj_df[["ann_emotion", "detected_object"]]
+        return self.yolo_ann_outputs_filtered[['dir_image_path', 'ann_emotion', 'detected_object']]
 
     def get_emo_ann_df(self):
-        return self.emonet_ann_outputs[["emonet_emotion", "ann_emotion"]]
+        return self.emonet_ann_outputs_filtered[["emonet_emotion", "ann_emotion"]]
 
     def get_aro_df(self):
-        return self.emonet_ann_outputs[["emonet_arousal", "ann_arousal"]]
+        return self.emonet_ann_outputs_filtered[["emonet_arousal", "ann_arousal"]]
 
     def get_val_df(self):
-        return self.emonet_ann_outputs[["emonet_valence", "ann_valence"]]
+        return self.emonet_ann_outputs_filtered[["emonet_valence", "ann_valence"]]
 
 
     def plot_scatter_size_plot(self, df, col1, col2):
@@ -126,7 +127,7 @@ def analysis_emo_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(emo_obj_df, emo_to_corr, obj_to_corr, 'emonet_emotion')
+    df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_outputs, emo_to_corr=emo_to_corr, emo_label='emonet_emotion', obj_to_corr=obj_to_corr)
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
     sns.heatmap(correlation_matrix, annot=True)
 
@@ -141,19 +142,19 @@ def analysis_ann_obj(gs, emo_to_corr, obj_to_corr):
     # scatter plot
     gs.plot_scatter_size_plot(ann_obj_df, "ann_emotion", "detected_object")
     # correlation matrix
-    df = correlation_analysis.emo_obj_binary_df(ann_obj_df, emo_to_corr, obj_to_corr, 'ann_emotion')
+    df = correlation_analysis.emo_obj_binary_df(df_to_corr=gs.yolo_ann_outputs,emo_to_corr=emo_to_corr, emo_label='ann_emotion', obj_to_corr=obj_to_corr)
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
     sns.heatmap(correlation_matrix, annot=True)
     plt.tight_layout()
     plt.show()
 
-def analysis_emo_ann(gs,):
+def analysis_emo_ann(gs):
     # analysis 2 : predicted emotion (EmoNet) vs annotated emotion (ANN)
     emo_ann_df = gs.get_emo_ann_df()
     # scatter plot
     gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
     # correlation matrix
-    df = correlation_analysis.emo_emo_binary_df(emo_ann_df['emonet_emotion'].to_list(), emo_ann_df['ann_emotion'].to_list())
+    df = correlation_analysis.emo_emo_binary_df(gs.emonet_ann_outputsk, emo_ann_df['emonet_emotion'].to_list(), emo_ann_df['ann_emotion'].to_list())
     correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
     sns.heatmap(correlation_matrix, annot=True)
     plt.tight_layout()
@@ -182,16 +183,13 @@ def analysis_arousal(gs):
     plt.show()
 
 
-
 if __name__ == '__main__':
     gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.5, obj_conf_thres=0.1,
                           ann_ambiguity_thres=4, device=torch.device('cpu'))
 
     # analyses
-    analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'],
-                     ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
-    analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],
-                     ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
-    analysis_emo_ann(gs)
-    analysis_valence(gs)
-    analysis_arousal(gs)
+    analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    #analysis_emo_ann(gs)
+    #analysis_valence(gs)
+    #analysis_arousal(gs)
