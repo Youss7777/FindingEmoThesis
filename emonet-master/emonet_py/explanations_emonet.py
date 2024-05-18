@@ -35,24 +35,28 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camPlus = GradCAMPlusPlus(model, target_layers)
         grayscale_cam_Plus = camPlus(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Plus = grayscale_cam_Plus[0, :]
+        np.save("cam_grad_pp_dataset/cam_grad_pp_" + file_name, grayscale_cam_Plus)
         vis_Plus = show_cam_on_image(image, grayscale_cam_Plus, use_rgb=True, image_weight=image_weight)
         vis.append(["Grad-CAM++", vis_Plus])
     if ablationcam==1:
         camAbla = AblationCAM(model, target_layers)
         grayscale_cam_Abla = camAbla(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Abla = grayscale_cam_Abla[0, :]
+        np.save("cam_ablation_dataset/cam_ablation_" + file_name, grayscale_cam_Abla)
         vis_Abla = show_cam_on_image(image, grayscale_cam_Abla, use_rgb=True, image_weight=image_weight)
         vis.append(["Ablation-CAM", vis_Abla])
     if scorecam==1:
         camScore = ScoreCAM(model, target_layers)
         grayscale_cam_Score = camScore(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Score = grayscale_cam_Score[0, :]
+        np.save("cam_score_dataset/cam_score_" + file_name, grayscale_cam_Score)
         vis_Score = show_cam_on_image(image, grayscale_cam_Score, use_rgb=True, image_weight=image_weight)
         vis.append(["Score-CAM", vis_Score])
     if eigencam==1:
         camEigen = EigenCAM(model, target_layers)
         grayscale_cam_Eigen = camEigen(input_tensor=input_tensor, targets=targets)
         grayscale_cam_Eigen = grayscale_cam_Eigen[0, :]
+        np.save("cam_eigen_dataset/cam_eigen_" + file_name, grayscale_cam_Eigen)
         vis_Eigen = show_cam_on_image(image, grayscale_cam_Eigen, use_rgb=True, image_weight=image_weight)
         vis.append(["Eigen-CAM", vis_Eigen])
     if liftcam==1:
@@ -60,6 +64,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camLift = CAM_Explanation(model, "LIFT-CAM")
         grayscale_cam_Lift = camLift(input_tensor.cpu(), int(class_index), img_size)
         grayscale_cam_Lift = torch.squeeze(grayscale_cam_Lift).cpu().detach().numpy()
+        np.save("cam_lift_dataset/cam_lift_" + file_name, grayscale_cam_Lift)
         vis_Lift = show_cam_on_image(image, grayscale_cam_Lift, use_rgb=True, image_weight=image_weight)
         vis.append(["Lift-CAM", vis_Lift])
     if lrpcam==1:
@@ -67,6 +72,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camLrp = CAM_Explanation(model, "LRP-CAM")
         grayscale_cam_Lrp = camLrp(input_tensor.cpu(), int(class_index), img_size)
         grayscale_cam_Lrp = torch.squeeze(grayscale_cam_Lrp).cpu().detach().numpy()
+        np.save("cam_lrp_dataset/cam_lrp_" + file_name, grayscale_cam_Lrp)
         vis_Lrp = show_cam_on_image(image, grayscale_cam_Lrp, use_rgb=True, image_weight=image_weight)
         vis.append(["Lrp-CAM", vis_Lrp])
     if limecam==1:
@@ -74,6 +80,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         camLime = CAM_Explanation(model, "LIME-CAM")
         grayscale_cam_Lime = camLime(input_tensor.cpu(), int(class_index), img_size)
         grayscale_cam_Lime = torch.squeeze(grayscale_cam_Lime).cpu().detach().numpy()
+        np.save("cam_lrp_dataset/cam_lime_" + file_name, grayscale_cam_Lime)
         vis_Lime = show_cam_on_image(image, grayscale_cam_Lime, use_rgb=True, image_weight=image_weight)
         vis.append(["Lime-CAM", vis_Lime])
     if guided==1:
@@ -109,7 +116,8 @@ def plot_cam(visualization, image, class_label, prob_label, val, aro):
         ax[i+1].axis('off')
         ax[i+1].set_title(visualization[i][0])
     plt.subplots_adjust(wspace=0.1, hspace=0)
-    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label:0.2f}% \nValence: {val:.0f} \nArousal: {aro:.0f}")
+    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label*100:0.2f}% \nValence: {val:.0f} \nArousal: {aro:.0f}")
+    plt.tight_layout()
     plt.show()
 
 
@@ -169,7 +177,7 @@ class ExplanationsEmonet:
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=1, liftcam=1, lrpcam=1, limecam=1, guided=0,
+        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=0, liftcam=1, lrpcam=1, limecam=1, guided=0,
                                  image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
                                  class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
         if show_plot:

@@ -182,14 +182,13 @@ def analysis_arousal(gs):
     # scatter plot
     plt.scatter(x=aro_emonet_ann_df["emonet_arousal"], y=aro_emonet_ann_df["ann_arousal"])
     # plot correlation matrix (one coefficient only here)
-    #mask = np.triu(np.ones_like(aro_emonet_ann_df.corr()))  # mask for triangular matrix only
     print(aro_emonet_ann_df.corr(method="spearman"))
     plt.tight_layout()
     plt.show()
 
 
 if __name__ == '__main__':
-    gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.5, obj_conf_thres=0.1,
+    gs = GlobalStatistics(obj_importance_thres=0.3, emo_conf_thres=0.5, obj_conf_thres=0.0,
                           ann_ambiguity_thres=4, device=torch.device('cpu'))
 
     # analyses

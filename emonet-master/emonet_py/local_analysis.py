@@ -80,14 +80,29 @@ class LocalAnalysis:
         df["object_importance"] = importance
         return df
 
-    def local_analysis(self, file_path, file_name, show_output=False):
+    def local_analysis(self, file_path, file_name, explanation_method='gradcam', nb_objects=0, show_output=False):
         """
         Perform local analysis on single image.
         """
         img_path = os.path.join(file_path)
 
         # load the corresponding grad-cam heatmap
-        grayscale_cam = np.load("cam_grad_dataset/cam_grad_"+file_name+".npy")
+        if explanation_method == 'gradcam':
+            grayscale_cam = np.load("cam_grad_dataset/cam_grad_" + file_name + ".npy")
+        if explanation_method == 'gradcampp':
+            grayscale_cam = np.load("cam_grad_pp_dataset/cam_grad_pp_" + file_name + ".npy")
+        if explanation_method == 'ablationcam':
+            grayscale_cam = np.load("cam_ablation_dataset/cam_ablation_" + file_name + ".npy")
+        if explanation_method == 'scorecam':
+            grayscale_cam = np.load("cam_score_dataset/cam_score_" + file_name + ".npy")
+        if explanation_method == 'eigen':
+            grayscale_cam = np.load("cam_eigen_dataset/cam_eigen_" + file_name + ".npy")
+        if explanation_method == 'liftcam':
+            grayscale_cam = np.load("cam_lift_dataset/cam_lift_" + file_name + ".npy")
+        if explanation_method == 'lrpcam':
+            grayscale_cam = np.load("cam_lrp_dataset/cam_lrp_" + file_name + ".npy")
+        if explanation_method == 'limecam':
+            grayscale_cam = np.load("cam_lime_dataset/cam_lime_" + file_name + ".npy")
         with torch.no_grad():
             with open(img_path, 'rb') as f:
                 img = Image.open(f).convert('RGB')
@@ -120,9 +135,15 @@ class LocalAnalysis:
             df_sorted = df_complete.sort_values(by="object_importance", ascending=False)
 
             if show_output:
-                df_sorted = df_sorted.head(6)
+                df_sorted = df_sorted.head(nb_objects)
                 print(df_sorted)
-                bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label).show()
+                #bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label)
+                fig, ax = plt.subplots()
+                ax.imshow(bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label))
+                ax.axis('off')
+                object_list = '\n'.join([f'{obj}: {imp*100:0.1f}%' for obj, imp in zip(df_sorted['class_label'], df_sorted['object_importance'])])
+                fig.text(0.5, 0.97, explanation_method+'\n'+object_list, ha='center', va='top', fontsize=9, bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'))
+                plt.subplots_adjust(top=0.83)
                 plt.show()
 
         return df_complete_return
