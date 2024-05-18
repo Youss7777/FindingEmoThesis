@@ -77,6 +77,7 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
         vis_Lime = show_cam_on_image(image, grayscale_cam_Lime, use_rgb=True, image_weight=image_weight)
         vis.append(["Lime-CAM", vis_Lime])
     if guided==1:
+        # doesn't quite work
         # Get localization map
         camGrad = GradCAM(model, target_layers)
         grayscale_cam_Grad = camGrad(input_tensor=input_tensor, targets=targets)
@@ -168,7 +169,7 @@ class ExplanationsEmonet:
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=1, gradcampp=0, ablationcam=0, scorecam=0, eigencam=0, liftcam=0, lrpcam=0, limecam=0, guided=0,
+        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=1, liftcam=1, lrpcam=1, limecam=1, guided=0,
                                  image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
                                  class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
         if show_plot:

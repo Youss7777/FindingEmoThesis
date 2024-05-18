@@ -8,6 +8,8 @@ import scipy as sp
 import association_metrics as am
 import os
 import torch
+import numpy as np
+import correlation_analysis
 
 def get_dir_image_path(file_path):
     return os.path.basename(os.path.dirname(file_path)) + '/' + os.path.basename(file_path)
@@ -34,68 +36,78 @@ def save_dictionary(dico, name):
         json.dump(dico, file)
     print(f'{name} saved successfully.')
 
+def remove_outliers(df, col_name, freq):
+    """
+    Remove the detected objects which occurring frequency is below 'freq'
+    """
+    v = df[col_name].value_counts(normalize=True)
+    df = df[df[col_name].isin(v.index[v.gt(freq)])]
+    return df
+
+def remove_instances(df, col_name, instances):
+    """
+    Remove all instances from 'col_name' column of dataframe df
+    """
+    for inst in instances:
+        df = df[(df[col_name] != inst)]
+    return df
+
 class GlobalStatistics:
 
     def __init__(self, obj_importance_thres, emo_conf_thres, obj_conf_thres, ann_ambiguity_thres, device=torch.device('cpu')):
-        self.emonet_outputs = pd.read_csv('emonet_outputs')
-        self.yolo_outputs = pd.read_csv('yolo_outputs')
         self.ann = get_annotations_df()
         self.obj_importance_thres = obj_importance_thres
         self.emo_conf_thres = emo_conf_thres
         self.obj_conf_thres = obj_conf_thres
         self.ann_ambiguity_thres = ann_ambiguity_thres
-        self.emonet_ann_outputs, self.yolo_ann_outputs = self.merge_df()
+        self.emonet_outputs, self.yolo_outputs, self.emonet_ann_outputs, self.yolo_ann_outputs = self.post_proc_df()
 
-    def merge_df(self):
+
+    def post_proc_df(self):
         #self.emonet_ann_outputs = self.emonet_ann_outputs.explode("ann_dec_factors")
-        emonet_ann_outputs = pd.merge(self.emonet_outputs, self.ann,
-                                      on=["dir_image_path"], how='left')
-        yolo_ann_outputs = pd.merge(self.yolo_outputs, self.ann,
-                                    on=["dir_image_path"], how='left')
 
-        return emonet_ann_outputs, yolo_ann_outputs
+        # remove surplus images from emonet_outputs
+        emonet_outputs = pd.read_csv('emonet_outputs')
+        emonet_outputs = pd.merge(self.ann['dir_image_path'], emonet_outputs, how='left', on='dir_image_path')
+
+        # remove surplus images from yolo_outputs
+        yolo_outputs = pd.read_csv('yolo_outputs')
+        yolo_outputs = pd.merge(self.ann['dir_image_path'], yolo_outputs, how='left', on='dir_image_path')
+
+        # some merging to have dataframes for later analysis
+        emonet_ann_outputs = pd.merge(emonet_outputs, self.ann, on=["dir_image_path"], how='left')
+        yolo_ann_outputs = pd.merge(yolo_outputs, self.ann, on=["dir_image_path"], how='left')
+
+        # apply pre-filtering
+        yolo_outputs = yolo_outputs[(yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
+                                       (yolo_outputs["object_confidence"] > self.obj_conf_thres) &
+                                       (yolo_outputs["object_importance"] > self.obj_importance_thres)]
+        yolo_ann_outputs = yolo_ann_outputs[(yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres)
+                                            & (yolo_ann_outputs["object_confidence"] > self.obj_conf_thres)]
+        emonet_ann_outputs = emonet_ann_outputs[(emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
+                                                (emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
+
+        return emonet_outputs, yolo_outputs, emonet_ann_outputs, yolo_ann_outputs
 
 
     def get_emo_obj_df(self):
-        emo_obj_df = self.yolo_outputs[(self.yolo_outputs["emonet_emotion_conf"] > self.emo_conf_thres) &
-                                       (self.yolo_outputs["object_confidence"] > self.obj_conf_thres) &
-                                       (self.yolo_outputs["object_importance"] > self.obj_importance_thres)]
-        emo_obj_df = emo_obj_df.drop_duplicates(subset=['dir_image_path', 'emonet_emotion', 'detected_object'], keep='first')
-        emo_obj_df = emo_obj_df[(emo_obj_df["detected_object"] != "Person") & (emo_obj_df["detected_object"] != "Clothing")]
-
+        # remove objects detected multiple times in the same image
+        emo_obj_df = self.yolo_outputs.drop_duplicates(subset=['dir_image_path', 'emonet_emotion', 'detected_object'], keep='first')
         return emo_obj_df[['emonet_emotion', 'detected_object']]
 
+    def get_ann_obj(self):
+        # remove objects detected multiple times in the same image
+        ann_obj_df = self.yolo_ann_outputs.drop_duplicates(subset=['dir_image_path', 'ann_emotion', 'detected_object'], keep='first')
+        return ann_obj_df[["ann_emotion", "detected_object"]]
+
     def get_emo_ann_df(self):
-        emo_ann_df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                             (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
-
-        return emo_ann_df[["emonet_emotion", "ann_emotion"]]
-
-    def get_obj_ann_df(self):
-        obj_ann_df = self.yolo_ann_outputs[(self.yolo_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                           (self.yolo_ann_outputs["object_confidence"] > self.obj_conf_thres) &
-                                           (self.yolo_ann_outputs["object_importance"] > self.obj_importance_thres)]
-
-        return obj_ann_df[["ann_emotion", "detected_object"]]
-
-    def get_emo_fact_df(self):
-        emo_ann_df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                             (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
-
-        return emo_ann_df[["ann_emotion", "ann_dec_factors"]]
-
+        return self.emonet_ann_outputs[["emonet_emotion", "ann_emotion"]]
 
     def get_aro_df(self):
-        df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                     (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
-
-        return df[["emonet_arousal", "ann_arousal"]]
+        return self.emonet_ann_outputs[["emonet_arousal", "ann_arousal"]]
 
     def get_val_df(self):
-        df = self.emonet_ann_outputs[(self.emonet_ann_outputs["ann_ambiguity"] < self.ann_ambiguity_thres) &
-                                     (self.emonet_ann_outputs["emonet_emotion_conf"] > self.emo_conf_thres)]
-
-        return df[["emonet_valence", "ann_valence"]]
+        return self.emonet_ann_outputs[["emonet_valence", "ann_valence"]]
 
 
     def plot_scatter_size_plot(self, df, col1, col2):
@@ -106,156 +118,80 @@ class GlobalStatistics:
         plt.show()
 
 
-    def cramers_correlation_matrix(self):
-        """
-        Plot an association matrix using the Cramer's V method
-        """
-        # select features only
-        df = self.yolo_ann_outputs[["detected_object", "emonet_emotion", "ann_emotion", "ann_dec_factors"]]
-        # Convert you str columns to Category columns
-        df = df.apply(
-            lambda x: x.astype("category") if x.dtype == "O" else x)
-        # Initialize a CramersV object using pandas.DataFrame
-        cramersv = am.CramersV(df)
-        # will return a pairwise matrix filled with Cramer's V, where columns and index are
-        # the categorical variables of the passed pandas.DataFrame
-        return cramersv.fit()
-
-    def remove_obj_cat(self, obj):
-        """
-        Remove specific object category from the data
-        """
-        self.yolo_outputs = self.yolo_outputs[self.yolo_outputs["detected_object"] != obj]
-        self.yolo_ann_outputs = self.yolo_ann_outputs[self.yolo_ann_outputs["detected_object"] != obj]
-
-
-    def remove_obj_outliers(self, count):
-        """
-        Remove the detected objects occurring less (or equal) than 'count' times
-        """
-        v = self.yolo_outputs.detected_object.value_counts()
-        self.yolo_outputs = self.yolo_outputs[self.yolo_outputs.detected_object.isin(v.index[v.gt(count)])]
-        w = self.yolo_ann_outputs.detected_object.value_counts()
-        self.yolo_ann_outputs = self.yolo_ann_outputs[self.yolo_ann_outputs.detected_object.isin(w.index[w.gt(count)])]
-
-def analysis_obj_emo(gs):
+def analysis_emo_obj(gs, emo_to_corr, obj_to_corr):
     # analysis 1 : detected object (Yolo & GradCam) vs predicted emotion (EmoNet)
-    obj_emo_df = gs.get_emo_obj_df()
-    # get count table
-    obj_emo_df_ct = pd.crosstab(obj_emo_df["emonet_emotion"], obj_emo_df["detected_object"])
-    # get cramer's v correlation measure for nominal variables (significance test)
-    cram_corr_emo_obj = sp.stats.contingency.association(obj_emo_df_ct, 'cramer')
-    # get chi2 correlation measure (strength of association)
-    chi_square_corr_emo_obj = sp.stats.chi2_contingency(obj_emo_df_ct)
-    gs.plot_scatter_size_plot(obj_emo_df, "emonet_emotion", "detected_object")
-    print("emonet emotion vs detected object corr: ", cram_corr_emo_obj, chi_square_corr_emo_obj)
+    emo_obj_df = gs.get_emo_obj_df()
+    # remove specific instances
+    emo_obj_df = remove_instances(emo_obj_df, 'detected_object', ['Person', 'Clothing'])
+    # scatter plot
+    gs.plot_scatter_size_plot(emo_obj_df, "emonet_emotion", "detected_object")
+    # correlation matrix
+    df = correlation_analysis.emo_obj_binary_df(emo_to_corr, obj_to_corr)
+    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    sns.heatmap(correlation_matrix, annot=True)
 
     plt.tight_layout()
     plt.show()
 
+def analysis_ann_obj(gs, emo_to_corr, obj_to_corr):
+    # analysis 1 : detected object (Yolo & GradCam) vs predicted emotion (EmoNet)
+    ann_obj_df = gs.get_ann_obj()
+    # remove specific instances
+    ann_obj_df = remove_instances(ann_obj_df, 'detected_object', ['Person', 'Clothing'])
+    # scatter plot
+    gs.plot_scatter_size_plot(ann_obj_df, "ann_emotion", "detected_object")
+    # correlation matrix
+    df = correlation_analysis.emo_obj_binary_df(emo_to_corr, obj_to_corr, )
+    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    sns.heatmap(correlation_matrix, annot=True)
+    plt.tight_layout()
+    plt.show()
 
-
-def analysis_emo_ann(gs):
+def analysis_emo_ann(gs,):
     # analysis 2 : predicted emotion (EmoNet) vs annotated emotion (ANN)
     emo_ann_df = gs.get_emo_ann_df()
-    emo_ann_df_ct = pd.crosstab(emo_ann_df["emonet_emotion"], emo_ann_df["ann_emotion"])
-    cram_corr_emo_ann = sp.stats.contingency.association(emo_ann_df_ct, 'cramer')
-    chi_square_corr_emo_ann = sp.stats.chi2_contingency(emo_ann_df_ct)
+    # scatter plot
     gs.plot_scatter_size_plot(emo_ann_df, "emonet_emotion", "ann_emotion")
-    print("emonet emotion vs ann emotion corr: ", cram_corr_emo_ann, chi_square_corr_emo_ann)
-
+    # correlation matrix
+    df = correlation_analysis.emo_emo_binary_df(emo_ann_df['emonet_emotion'].to_list(), emo_ann_df['ann_emotion'].to_list())
+    correlation_matrix = correlation_analysis.rajski_correlation_matrix(df)
+    sns.heatmap(correlation_matrix, annot=True)
     plt.tight_layout()
     plt.show()
-
-
-
-def analysis_obj_ann(gs):
-    # analysis 3 : detected objects (Yolo) vs annotated emotions (ANN)
-    obj_ann_df = gs.get_obj_ann_df()
-    # get the count table
-    obj_ann_df_ct = pd.crosstab(obj_ann_df["ann_emotion"], obj_ann_df["detected_object"])
-    # get cramer's v correlation measure for nominal variables (significance test)
-    cram_corr_obj_ann = sp.stats.contingency.association(obj_ann_df_ct, 'cramer')
-    # get chi2 correlation measure (strength of association)
-    chi_square_corr_obj_ann = sp.stats.chi2_contingency(obj_ann_df_ct)
-    # plotting
-    gs.plot_scatter_size_plot(obj_ann_df, "ann_emotion", "detected_object")
-    plt.tight_layout()
-    plt.show()
-
-    # cramers correlation
-    print("detected objects vs ann emotions corr: ", cram_corr_obj_ann)
-
-    plt.tight_layout()
-    plt.show()
-
-
 
 def analysis_valence(gs):
     # analysis 4 : predicted valence (EmoNet) vs annotated valence (ANN)
     val_emonet_ann_df = gs.get_val_df()
-    # get pearson correlation measure
-    pears_val = sp.stats.pearsonr(val_emonet_ann_df["emonet_valence"], val_emonet_ann_df["ann_valence"])
-    print("emonet valence vs ann valence corr: ", pears_val)
     # plotting
     sns.scatterplot(val_emonet_ann_df, x=val_emonet_ann_df["emonet_valence"], y=val_emonet_ann_df["ann_valence"])
-    plt.tight_layout()
-    plt.show()
-
     # plot correlation matrix (one coefficient only here)
-    sns.heatmap(val_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm')
-    # valence vs arousal corr
-    print(gs.emonet_ann_outputs[["emonet_valence", "ann_valence", "emonet_arousal", "ann_arousal"]].corr(
-        method="pearson"))
+    mask = np.triu(np.ones_like(val_emonet_ann_df.corr()))  # mask for triangular matrix only
+    sns.heatmap(val_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm', mask=mask)
     plt.tight_layout()
     plt.show()
-
 
 def analysis_arousal(gs):
     # analysis 5 : predicted arousal (EmoNet) vs annotated arousal (ANN)
     aro_emonet_ann_df = gs.get_aro_df()
-    # get pearson correlation measure
-    pears_aro = sp.stats.pearsonr(aro_emonet_ann_df["emonet_arousal"], aro_emonet_ann_df["ann_arousal"])
-    print("emonet arousal vs ann arousal corr: ", pears_aro)
-    # plotting
+    # scatter plot
     sns.scatterplot(aro_emonet_ann_df, x=aro_emonet_ann_df["emonet_arousal"], y=aro_emonet_ann_df["ann_arousal"])
-    plt.tight_layout()
-    plt.show()
-
     # plot correlation matrix (one coefficient only here)
-    sns.heatmap(aro_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm')
+    mask = np.triu(np.ones_like(aro_emonet_ann_df.corr()))  # mask for triangular matrix only
+    sns.heatmap(aro_emonet_ann_df.corr(method="pearson"), annot=True, cmap='coolwarm', mask=mask)
     plt.tight_layout()
     plt.show()
-
-
-def analysis_fact_emo(gs):
-    # ( analysis  : deciding factor (ANN) vs annotated emotion (ANN) )
-    fact_emo_ann_df = gs.get_emo_fact_df()
-    fact_emo_ann_df_ct = pd.crosstab(fact_emo_ann_df["ann_dec_factors"], fact_emo_ann_df["ann_emotion"])
-    cram_corr_emo_fact = sp.stats.contingency.association(fact_emo_ann_df_ct, 'cramer')
-    chi_square_corr_emo_fact = sp.stats.chi2_contingency(fact_emo_ann_df_ct)
-    print("emonet emotion vs ann factors", cram_corr_emo_fact)
 
 
 
 if __name__ == '__main__':
     gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.5, obj_conf_thres=0.1,
-                          ann_ambiguity_thres=4, device=torch.device('mps'))
-    # filtering
-    #gs.remove_obj_cat("Person")
-    #gs.remove_obj_cat("Clothing")
-    #gs.remove_obj_outliers(50)
+                          ann_ambiguity_thres=4, device=torch.device('cpu'))
 
     # analyses
-    analysis_obj_emo(gs)
-    analysis_obj_ann(gs)
-    #analysis_emo_ann(gs)
-    #analysis_valence(gs)
-    #analysis_arousal(gs)
-
-    # correlations
-    #sns.heatmap(gs.cramers_correlation_matrix(), annot=True, cmap='coolwarm')
-
-    plt.tight_layout()
-
-    plt.show()
+    analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'],
+                     ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    analysis_ann_obj(gs, ['Joy', 'Amazement', 'Sadness', 'Interest', 'Boredom'],
+                     ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])
+    analysis_emo_ann(gs)
+    analysis_valence(gs)
+    analysis_arousal(gs)

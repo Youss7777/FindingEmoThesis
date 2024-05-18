@@ -21,32 +21,34 @@ matplotlib.use('MacOSX')
 emonet_df = pd.read_csv('emonet_outputs')
 yolo_df = pd.read_csv('yolo_outputs')
 
-def get_obj_vec(obj_name):
-    df2 = yolo_df[['dir_image_path', 'detected_object']].copy()
+def get_emo_vec(emo_name, df, emo_col_label):
+    df2 = df[['dir_image_path', emo_col_label]].copy()
+    df2[emo_name] = (df2[emo_col_label] == emo_name).astype(int)
+    df3 = df2.groupby(by=['dir_image_path'], sort=False, as_index=False).sum(numeric_only=True)
+    vec_emo = df3[emo_name].apply(lambda x: 1 if x > 1 else x)
+    return vec_emo
+def emo_emo_binary_df(df_emo, emo_to_corr1, emo_to_corr2, emo_col_label1, emo_col_label2):
+    df = pd.DataFrame()
+    for emo1 in emo_to_corr1:
+        df = pd.concat([df, get_emo_vec(df_emo, emo1, emo_col_label1)], axis=1)
+    for emo2 in emo_to_corr2:
+        df = pd.concat([df, get_emo_vec(df_emo, emo2, emo_col_label2)], axis=1)
+    return df
+
+def get_obj_vec(obj_name, df):
+    df2 = df[['dir_image_path', 'detected_object']].copy()
     df2[obj_name] = (df2['detected_object'] == obj_name).astype(int)
     df3 = df2.groupby(by=['dir_image_path'], sort=False, as_index=False).sum(numeric_only=True)
     vec_obj = df3[obj_name].apply(lambda x: 1 if x > 1 else x)
     return vec_obj
 
-def get_emo_vec(emo_name):
-    df2 = yolo_df[['dir_image_path', 'emonet_emotion']].copy()
-    df2[emo_name] = (df2['emonet_emotion'] == emo_name).astype(int)
-    df3 = df2.groupby(by=['dir_image_path'], sort=False, as_index=False).sum(numeric_only=True)
-    vec_emo = df3[emo_name].apply(lambda x: 1 if x > 1 else x)
-    return vec_emo
-
-def emo_obj_binary_df(obj_to_corr, emo_to_corr):
+def emo_obj_binary_df(emo_to_corr, obj_to_corr, emo_obj_df, emo_col_label):
     df = pd.DataFrame()
     for obj in obj_to_corr:
-        df = pd.concat([df, get_obj_vec(obj)], axis=1)
+        df = pd.concat([df, get_obj_vec(obj, emo_obj_df)], axis=1)
     for emo in emo_to_corr:
-        df = pd.concat([df, get_emo_vec(emo)], axis=1)
+        df = pd.concat([df, get_emo_vec(emo, emo_obj_df, emo_col_label)], axis=1)
     return df
-
-
-obj_to_corr = ['Human face', 'Human eye', 'Weapon', 'Sports equipment', 'Food']
-emo_to_corr = ['Amusement', 'Excitement', 'Joy', 'Boredom', 'Romance']
-
 
 # SMC : doesn't work
 def smc_custom_metric(u, v):
@@ -58,7 +60,6 @@ def smc_correlation_matrix(df):
     smc_distances = pdist(bool_array.T, metric=smc_custom_metric)
     smc_similarity_matrix = squareform(smc_distances)
     return pd.DataFrame(1 - smc_similarity_matrix, index=df.columns, columns=df.columns)
-
 
 # Dice : doesn't work
 def dice_custom_metric(u, v):
@@ -104,15 +105,4 @@ def rajski_correlation_matrix(df):
     rajski_distances = pdist(bool_array.T, metric=rajski_distance)
     rajski_similarity_matrix = 1 - squareform(rajski_distances)
     return pd.DataFrame(rajski_similarity_matrix, index=df.columns, columns=df.columns)
-
-
-
-
-df = emo_obj_binary_df(obj_to_corr, emo_to_corr)
-correlation_matrix = rajski_correlation_matrix(df)
-print(correlation_matrix)
-sns.heatmap(correlation_matrix, annot=True)
-plt.title('Rajski similarity')
-plt.tight_layout()
-plt.show()
 
