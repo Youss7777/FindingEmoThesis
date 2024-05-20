@@ -116,7 +116,7 @@ def plot_cam(visualization, image, class_label, prob_label, val, aro):
         ax[i+1].axis('off')
         ax[i+1].set_title(visualization[i][0])
     plt.subplots_adjust(wspace=0.1, hspace=0)
-    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label*100:0.2f}% \nValence: {val:.0f} \nArousal: {aro:.0f}")
+    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label*100:.1f}% \nValence: {val:.0f} \nArousal: {aro:.0f}")
     plt.tight_layout()
     plt.show()
 

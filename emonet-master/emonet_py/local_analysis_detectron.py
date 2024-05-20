@@ -51,8 +51,8 @@ class Detectron:
         resized_heatmap = resize_heatmap(heatmap, (image_rgb.shape[1], image_rgb.shape[0]))
         # overlay heatmap on image
         heatmap_overlay = overlay_heatmap_on_image(image_rgb, resized_heatmap)
-        # filter polygons by overlap
-        filtered_indices = filter_polygons_by_overlap(self.outputs['instances'], resized_heatmap, 0.1)
+        # filter polygons by importance
+        filtered_indices = filter_polygons_by_importance(self.outputs['instances'], resized_heatmap, 0.1)
         # visualize result
         metadata = MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0])
         # visualize without filtering
@@ -72,13 +72,13 @@ def overlay_heatmap_on_image(image, heatmap, alpha=0.5, colormap=cv2.COLORMAP_JE
     overlay = cv2.addWeighted(image, alpha, heatmap_colored, 1 - alpha, 0)
     return overlay
 
-# filter polygons by overlap
-def filter_polygons_by_overlap(instances, binary_mask, overlap_threshold):
+# filter polygons by importance
+def filter_polygons_by_importance(instances, binary_mask, importance_threshold):
     filtered_indices = []
     for i, mask in enumerate(instances.pred_masks):
         mask = mask.numpy()
-        overlap = np.sum(binary_mask * mask) / np.sum(mask)
-        if overlap >= overlap_threshold:
+        importance = np.sum(binary_mask * mask) / np.sum(mask)
+        if importance >= importance_threshold:
             filtered_indices.append(i)
     return filtered_indices
 

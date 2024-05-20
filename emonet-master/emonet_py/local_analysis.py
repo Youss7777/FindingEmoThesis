@@ -62,10 +62,10 @@ class LocalAnalysis:
         img_resize = ImgResize(width=608, height=608)
         self.transform = transforms.Compose([img_resize])
 
-    @staticmethod
-    def confidence_cutoff(df, threshold):
-        df.loc[df['confidence'] < threshold, 'importance'] = 0
-        return df
+    #@staticmethod
+    #def confidence_cutoff(df, threshold):
+    #    df.loc[df['confidence'] < threshold, 'importance'] = 0
+    #    return df
 
     @staticmethod
     def add_importance(df, heatmap):
@@ -102,7 +102,7 @@ class LocalAnalysis:
             grayscale_cam = np.load("cam_lime_dataset/cam_lime_" + file_name + ".npy")
         return grayscale_cam
 
-    def local_analysis(self, file_path, file_name, explanation_method='gradcam', nb_objects=0, show_output=False):
+    def local_analysis(self, file_path, file_name, max_emotion, max_prob, explanation_method='gradcam', nb_objects=0, show_output=False):
         """
         Perform local analysis on single image.
         """
@@ -146,12 +146,12 @@ class LocalAnalysis:
                 df_sorted = df_sorted.head(nb_objects)
                 print(df_sorted)
                 #bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label)
-                #fig, ax = plt.subplots()
+                fig, ax = plt.subplots()
                 plt.imshow(bb.util.draw_boxes(pil_img, df_sorted, label=df_sorted.class_label))
-                #ax.axis('off')
-                #object_list = '\n'.join([f'{obj}: {imp*100:0.1f}%' for obj, imp in zip(df_sorted['class_label'], df_sorted['object_importance'])])
-                #fig.text(0.5, 0.97, explanation_method+'\n'+object_list, ha='center', va='top', fontsize=9, bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'))
-                #plt.subplots_adjust(top=0.83)
+                ax.axis('off')
+                object_list = '\n'.join([f'{obj}: {imp*100:0.1f}%' for obj, imp in zip(df_sorted['class_label'], df_sorted['object_importance'])])
+                fig.text(0.5, 0.97, f'{max_emotion}: {max_prob*100:.1f}%'+'\n'+object_list, ha='center', va='top', fontsize=9, bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'))
+                plt.subplots_adjust(top=0.83)
                 plt.show()
 
         return df_complete_return
