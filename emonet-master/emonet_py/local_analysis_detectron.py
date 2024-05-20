@@ -20,9 +20,11 @@ from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog, DatasetCatalog
 from detectron2.structures import polygons_to_bitmask
 from shapely.geometry import Polygon
+import pickle
 
 
 class Detectron:
+
     def __init__(self, img):
         self.cfg = get_cfg()
         self.img = img
@@ -52,9 +54,12 @@ class Detectron:
         # overlay heatmap on image
         heatmap_overlay = overlay_heatmap_on_image(image_rgb, resized_heatmap)
         # filter polygons by overlap
-        filtered_indices = filter_polygons_by_overlap(self.outputs['instances'], binary_mask, 0.1)
+        filtered_indices = filter_polygons_by_overlap(self.outputs['instances'], resized_heatmap, 0.1)
         # visualize result
         metadata = MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0])
+        # visualize without filtering
+        visualize_overlay(image, self.outputs['instances'], metadata, heatmap_overlay)
+        # visualize with filtering
         visualize_filtered_predictions(image_rgb, self.outputs['instances'], filtered_indices, metadata, heatmap_overlay)
 
 
@@ -77,10 +82,10 @@ def overlay_heatmap_on_image(image, heatmap, alpha=0.5, colormap=cv2.COLORMAP_JE
 def filter_polygons_by_overlap(instances, binary_mask, overlap_threshold):
     filtered_indices = []
     for i, mask in enumerate(instances.pred_masks):
-        mask = mask.cpu().numpy()
-        polygon = mask_to_polygon(mask)
-        polygon_mask = polygon_to_mask(polygon, binary_mask.shape)
-        overlap = np.sum(binary_mask & polygon_mask) / np.sum(polygon_mask)
+        mask = mask.numpy()
+        #polygon = mask_to_polygon(mask)
+        #polygon_mask = polygon_to_mask(polygon, binary_mask.shape)
+        overlap = np.sum(binary_mask * mask) / np.sum(mask)
         if overlap >= overlap_threshold:
             filtered_indices.append(i)
     return filtered_indices
@@ -108,10 +113,18 @@ def visualize_filtered_predictions(image, instances, filtered_indices, metadata,
     plt.axis('off')
     plt.show()
 
-
+def visualize_overlay(image, instances, metadata, heatmap_overlay):
+    v = Visualizer(image[:, :, ::-1], metadata=metadata)  # Convert image to RGB for Visualizer
+    v = v.draw_instance_predictions(instances)
+    result_image = v.get_image()[:, :, ::-1]  # Convert back to BGR for consistency with OpenCV
+    plt.figure(figsize=(12, 8))
+    plt.imshow(result_image)
+    plt.imshow(heatmap_overlay, alpha=0.5)
+    plt.axis('off')
+    plt.show()
 
 if __name__ == '__main__':
-    file_name = 'woman.jpg'
+    file_name = 'basketball_player1.jpg'
     file_path = 'test_images/' + file_name
     image = cv2.imread(file_path)
     detectron = Detectron(image)
