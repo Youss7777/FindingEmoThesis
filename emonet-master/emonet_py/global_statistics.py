@@ -188,8 +188,8 @@ def analysis_arousal(gs):
 
 
 if __name__ == '__main__':
-    gs = GlobalStatistics(obj_importance_thres=0.3, emo_conf_thres=0.5, obj_conf_thres=0.0,
-                          ann_ambiguity_thres=4, device=torch.device('cpu'))
+    gs = GlobalStatistics(obj_importance_thres=0.5, emo_conf_thres=0.8, obj_conf_thres=0.1,
+                          ann_ambiguity_thres=3, device=torch.device('cpu'))
 
     # analyses
     analysis_emo_obj(gs, ['Amusement', 'Excitement', 'Sadness', 'Interest', 'Boredom'], ['Human face', 'Human mouth', 'Sports equipment', 'Food', 'Plant'])

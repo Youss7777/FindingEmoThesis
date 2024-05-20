@@ -177,7 +177,7 @@ class ExplanationsEmonet:
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=0, liftcam=1, lrpcam=1, limecam=1, guided=0,
+        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=0, eigencam=0, liftcam=1, lrpcam=1, limecam=1, guided=0,
                                  image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
                                  class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
         if show_plot:

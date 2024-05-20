@@ -114,14 +114,12 @@ def plot_cam(visualization, image, class_label, prob_label, class_index):
         ax[i+1].axis('off')
         ax[i+1].set_title(visualization[i][0])
     plt.subplots_adjust(wspace=0.1, hspace=0)
-    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label:0.2f}% \nIndex: {class_index}")
+    plt.suptitle(f"Class: {class_label:}\nConfidence: {prob_label:0.2f}%")
     plt.show()
 
 
 def explanations_resnet50(img_path, file_name):
     # Input processing
-    #file_name = 'both'
-    #img_path = os.path.join('..', 'data/images', file_name+'.png')
     with torch.no_grad():
         with open(img_path, 'rb') as f:
             img_loaded = Image.open(f).convert('RGB')
@@ -165,7 +163,7 @@ def explanations_resnet50(img_path, file_name):
     print("Class: ", class_label)
     target_categories = np.array([class_index])
     targets = [ClassifierOutputTarget(class_index)]
-    vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=0, liftcam=1, lrpcam=0, limecam=0, guided=0,
+    vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=1, eigencam=0, liftcam=1, lrpcam=1, limecam=1, guided=0,
                              image=proc_img,model=model, target_layers=activation_maps, input_tensor=input_tensor, class_index=class_index,
                              img_size=img_size, file_name=file_name, targets=targets)
     plot_cam(visualization=vis, image=img_loaded, class_label=class_label, prob_label=prob_value, class_index=class_index)
