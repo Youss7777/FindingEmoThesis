@@ -49,8 +49,6 @@ class Detectron:
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert image to RGB for consistency
         # resize heatmap
         resized_heatmap = resize_heatmap(heatmap, (image_rgb.shape[1], image_rgb.shape[0]))
-        # generate binary mask from heatmap
-        binary_mask = generate_binary_mask(resized_heatmap, 0.5)
         # overlay heatmap on image
         heatmap_overlay = overlay_heatmap_on_image(image_rgb, resized_heatmap)
         # filter polygons by overlap
@@ -67,10 +65,6 @@ class Detectron:
 def resize_heatmap(heatmap, target_size):
     return cv2.resize(heatmap, target_size, interpolation=cv2.INTER_LINEAR)
 
-# generate masks from heatmap
-def generate_binary_mask(heatmap, threshold):
-    return (heatmap >= threshold).astype(np.uint8)
-
 # overlay heatmap
 def overlay_heatmap_on_image(image, heatmap, alpha=0.5, colormap=cv2.COLORMAP_JET):
     heatmap_colored = cv2.applyColorMap((heatmap * 255).astype(np.uint8), colormap)
@@ -83,23 +77,11 @@ def filter_polygons_by_overlap(instances, binary_mask, overlap_threshold):
     filtered_indices = []
     for i, mask in enumerate(instances.pred_masks):
         mask = mask.numpy()
-        #polygon = mask_to_polygon(mask)
-        #polygon_mask = polygon_to_mask(polygon, binary_mask.shape)
         overlap = np.sum(binary_mask * mask) / np.sum(mask)
         if overlap >= overlap_threshold:
             filtered_indices.append(i)
     return filtered_indices
 
-
-def mask_to_polygon(mask):
-    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return [Polygon(contour.reshape(-1, 2)) for contour in contours if contour.size > 0]
-
-def polygon_to_mask(polygon, shape):
-    mask = np.zeros(shape, dtype=np.uint8)
-    for poly in polygon:
-        cv2.fillPoly(mask, [np.array(poly.exterior.coords, dtype=np.int32)], 1)
-    return mask
 
 # visualize result
 def visualize_filtered_predictions(image, instances, filtered_indices, metadata, heatmap_overlay):
