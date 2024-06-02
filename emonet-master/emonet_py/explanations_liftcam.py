@@ -164,7 +164,7 @@ def lime_cam(model, x, class_id=None):
         handle = model.conv5.register_forward_hook(forward_hook)
     else:
         raise Exception("Not supported architecture.")
-        
+
     output = model(x)
     
     if class_id is None:

@@ -78,9 +78,9 @@ def get_visualizations(gradcam: int, gradcampp: int, ablationcam: int, scorecam:
     if limecam==1:
         input_tensor = input_tensor
         camLime = CAM_Explanation(model, "LIME-CAM")
-        grayscale_cam_Lime = camLime(input_tensor.cpu(), int(class_index), img_size)
+        grayscale_cam_Lime = camLime(input_tensor.to(device='mps'), int(class_index), img_size)
         grayscale_cam_Lime = torch.squeeze(grayscale_cam_Lime).cpu().detach().numpy()
-        np.save("cam_lrp_dataset/cam_lime_" + file_name, grayscale_cam_Lime)
+        np.save("cam_lime_dataset/cam_lime_" + file_name, grayscale_cam_Lime)
         vis_Lime = show_cam_on_image(image, grayscale_cam_Lime, use_rgb=True, image_weight=image_weight)
         vis.append(["Lime-CAM", vis_Lime])
     if guided==1:
@@ -177,7 +177,7 @@ class ExplanationsEmonet:
         activation_maps = [emo_model.conv5]
         # Visualization
         #emonet.prettyprint(pred, b_pc=True)
-        vis = get_visualizations(gradcam=1, gradcampp=1, ablationcam=1, scorecam=0, eigencam=0, liftcam=1, lrpcam=1, limecam=1, guided=0,
+        vis = get_visualizations(gradcam=1, gradcampp=0, ablationcam=0, scorecam=0, eigencam=0, liftcam=0, lrpcam=0, limecam=0, guided=0,
                                  image=proc_img, model=emo_model, target_layers=activation_maps, input_tensor=in_tensor,
                                  class_index=class_index, img_size=img_size, file_name=file_name, targets=None)
         if show_plot:

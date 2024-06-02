@@ -17,6 +17,9 @@ from sklearn import metrics
 
 matplotlib.use('MacOSX')
 
+dist_list = ['braycurtis', 'canberra', 'chebyshev', 'cityblock', 'correlation', 'cosine', 'dice', 'euclidean', 'hamming',
+             'jaccard', 'jensenshannon', 'kulczynski1', 'mahalanobis', 'matching', 'minkowski', 'rogerstanimoto',
+             'russellrao', 'seuclidean', 'sokalmichener', 'sokalsneath', 'sqeuclidean', 'yule']
 
 def get_obj_vec(df_to_corr, obj_name):
     df2 = df_to_corr[['dir_image_path', 'detected_object']].copy()
@@ -47,22 +50,7 @@ def emo_obj_binary_df(df_to_corr, emo_to_corr, emo_label, obj_to_corr):
         df = pd.concat([df, get_emo_vec(df_to_corr, emo, emo_label)], axis=1)
     return df
 
-
-
-def cramers_correlation_matrix(df):
-    """
-    Plot an association matrix using the Cramer's V method
-    """
-    # Convert you str columns to Category columns
-    df = df.apply(
-        lambda x: x.astype("category") if x.dtype == "O" else x)
-    # Initialize a CramersV object using pandas.DataFrame
-    cramersv = am.CramersV(df)
-    # will return a pairwise matrix filled with Cramer's V, where columns and index are
-    # the categorical variables of the passed pandas.DataFrame
-    return cramersv.fit()
-
-# SMC : doesn't work
+# Simple Matching Coefficient : doesn't work
 def smc_custom_metric(u, v):
     matches = np.sum(u == v)
     total = len(u)
@@ -106,15 +94,33 @@ def jaccard_correlation_matrix(df):
     # Convert result to DataFrame
     return pd.DataFrame(jaccard_similarity_matrix, index=df.columns, columns=df.columns)
 
+
 # Rajski : good
-def rajski_distance(vec1, vec2):
+def rajski_distance(vec1, vec2):    # same as mutual information?
     numerator = np.sum(np.logical_and(vec1, ~vec2))
     denominator = np.sum(vec1)
     return numerator / denominator if denominator != 0 else 0
+
 
 def rajski_correlation_matrix(df):
     bool_array = df.to_numpy().astype(bool)
     rajski_distances = pdist(bool_array.T, metric=rajski_distance)
     rajski_similarity_matrix = 1 - squareform(rajski_distances)
     return pd.DataFrame(rajski_similarity_matrix, index=df.columns, columns=df.columns)
+
+
+def binary_vec_correlation_matrix(df, method=None):
+    if method is None:
+        method = 'jaccard'
+    # convert to bool
+    bool_array = df.to_numpy().astype(bool)
+    # compute distances (transpose since cols = features and rows = samples)
+    distances = pdist(bool_array.T, metric=method)
+    # normalization
+    #min_dist = distances.min()
+    #max_dist = distances.max()
+    #normalized_distances = (distances - min_dist) / (max_dist - min_dist)
+    # convert back to matrix and from dissimilarity to similarity
+    similarity_matrix = 1 - squareform(distances)
+    return pd.DataFrame(similarity_matrix, index=df.columns, columns=df.columns)
 
